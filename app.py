@@ -5,6 +5,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, TextAreaField
 from wtforms.validators import DataRequired
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_talisman import Talisman
 from datetime import datetime
 import os
 from dotenv import load_dotenv
@@ -29,6 +30,26 @@ login_manager.login_view = 'login'
 ADMIN_USERNAME = os.getenv('FLASK_ADMIN_USERNAME')
 ADMIN_PASSWORD = os.getenv('FLASK_ADMIN_PASSWORD')
 ADMIN_PASSWORD_HASH = generate_password_hash(ADMIN_PASSWORD)
+
+Talisman(app,
+    content_security_policy={
+        'default-src': "'self'",
+        'img-src': "'self' data:",
+        'script-src': "'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com",
+        'style-src': "'self' 'unsafe-inline' https://cdnjs.cloudflare.com",
+    },
+    force_https=True,
+    session_cookie_secure=True,
+    session_cookie_http_only=True
+)
+
+@app.after_request
+def add_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    return response
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -258,7 +279,7 @@ if __name__ == '__main__':
     init_db()
     debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
     host = os.getenv('FLASK_HOST', '127.0.0.1')
-    port = int(os.getenv('FLASK_PORT', 8000))
+    port = int(os.getenv('FLASK_PORT', 5000))
 
     app.run(host=host, port=port, debug=False)
 
