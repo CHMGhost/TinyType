@@ -42,5 +42,7 @@ jobs:
 
     # Add your tests here
     - name: Run tests
+      env:
+        ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
       run: |
         pytest tests/
