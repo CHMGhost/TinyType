@@ -34,9 +34,11 @@ jobs:
       run: |
         bandit -r . -ll -ii --exclude ./tests/
 
-    - name: Check dependencies for vulnerabilities
-      run: |
-        safety scan --policy .safety-policy.yml
+    - name: Run safety check
+      env:
+        SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
+      run:  |
+        safety check -v
 
     # Add your tests here
     - name: Run tests
