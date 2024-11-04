@@ -1,13 +1,11 @@
 import pytest
-from werkzeug.security import generate_password_hash
 from app import app, db, Post
 import os
 
 
 # Fetch admin credentials
 ADMIN_USERNAME = os.getenv('FLASK_ADMIN_USERNAME')
-ADMIN_PASSWORD = os.getenv('FLASK_ADMIN_PASSWORD')
-ADMIN_PASSWORD_HASH = generate_password_hash(ADMIN_PASSWORD)
+ADMIN_PASSWORD_HASH = os.getenv('FLASK_ADMIN_PASSWORD_HASH')
 
 @pytest.fixture
 def client():
