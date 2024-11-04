@@ -43,6 +43,7 @@ jobs:
     # Add your tests here
     - name: Run tests
       env:
-        ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        ADMIN_PASSWORD: ${{ secrets.FLASK_ADMIN_PASSWORD }}
+        ADMIN_USERNAME: ${{ secrets.FLASK_ADMIN_USERNAME }}
       run: |
         pytest tests/
