@@ -8,7 +8,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_talisman import Talisman
 from datetime import datetime
 from jinja2 import Environment, select_autoescape
-from markupsafe import escape
+from markupsafe import escape, Markup
 import os
 from dotenv import load_dotenv
 import markdown2
@@ -201,11 +201,6 @@ class PostForm(FlaskForm):
     tags = StringField('Tags (comma separated)')
     categories = StringField('Categories (comma separated)')
     submit = SubmitField('Submit')
-
-
-@app.template_filter('markdown')
-def markdown_to_html(content):
-    return markdown2.markdown(content)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
