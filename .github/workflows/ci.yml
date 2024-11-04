@@ -38,7 +38,7 @@ jobs:
       env:
         SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
       run:  |
-        safety check -v
+        safety check
 
     # Add your tests here
     - name: Run tests
