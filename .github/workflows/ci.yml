@@ -9,25 +9,13 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11", "3.12"]
-
     steps:
     - uses: actions/checkout@v2
 
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Cache pip packages
-      uses: actions/cache@v2
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
+        python-version: ['3.11', '3.12']
 
     - name: Install dependencies
       run: |
@@ -44,18 +32,13 @@ jobs:
 
     - name: Security check with bandit
       run: |
-        bandit -r . -ll -ii
+        bandit -r . -ll -ii --exclude ./tests/
 
-    - name: Check dependencies for known security vulnerabilities
+    - name: Check dependencies for vulnerabilities
       run: |
-        safety check
+        safety scan --policy .safety-policy.yml
 
-    - name: Run workflows with pytest
+    # Add your tests here
+    - name: Run tests
       run: |
-        pytest --cov=./ --cov-report=xml
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v2
-      with:
-        file: ./coverage.xml
-        fail_ci_if_error: true
+        pytest

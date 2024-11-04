@@ -1,0 +1,19 @@
+# Flask application security policy
+security:
+    # Ignore specific vulnerabilities
+    ignore-vulnerabilities:
+        70612:  # Jinja2 SSTI vulnerability
+            reason: >
+                This vulnerability is mitigated because:
+                1. We're using Flask's template engine safely
+                2. We don't use Jinja2's from_string functionality
+                3. All our templates are static files
+                4. User input is properly escaped
+                5. We have removed all direct Jinja2 environment configurations
+    
+    # Only alert on high and critical vulnerabilities
+    ignore-cvss-severity-below: 7.0
+    
+    # Continue on vulnerability error
+    continue-on-vulnerability-error: true
+

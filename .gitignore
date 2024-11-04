@@ -1,6 +1,14 @@
 # Python cache files
 __pycache__/
 *.pyc
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+eggs/
+*.egg-info/
 
 # Flask instance folder
 instance/
@@ -21,3 +29,8 @@ instance/
 *.pem
 key.pem
 cert.pem
+
+# Virtual Environment
+venv/
+ENV/
+
