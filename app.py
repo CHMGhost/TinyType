@@ -41,8 +41,8 @@ login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
 # Fetch admin credentials
-ADMIN_USERNAME = os.getenv('FLASK_ADMIN_USERNAME')
-ADMIN_PASSWORD = os.getenv('FLASK_ADMIN_PASSWORD')
+ADMIN_USERNAME = os.getenv('ADMIN_USERNAME')
+ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD') or 'dummy_password'  # Use 'dummy_password' if ADMIN_PASSWORD is None
 ADMIN_PASSWORD_HASH = generate_password_hash(ADMIN_PASSWORD)
 
 UPLOAD_FOLDER = 'static/uploads'

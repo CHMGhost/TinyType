@@ -1,11 +1,5 @@
 import pytest
 from app import app, db, Post
-import os
-
-
-# Fetch admin credentials
-ADMIN_USERNAME = os.getenv('FLASK_ADMIN_USERNAME')
-ADMIN_PASSWORD_HASH = os.getenv('FLASK_ADMIN_PASSWORD_HASH')
 
 @pytest.fixture
 def client():
