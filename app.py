@@ -8,10 +8,15 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_talisman import Talisman
 from datetime import datetime
 from jinja2 import Environment, select_autoescape
+from markdown.extensions.fenced_code import FencedCodeExtension
+from markdown.extensions.tables import TableExtension
+from markdown.extensions.codehilite import CodeHiliteExtension
+from markdown import markdown
+from bleach import clean, linkify
+import html
 from markupsafe import escape, Markup
 import os
 from dotenv import load_dotenv
-import markdown2
 import json
 from werkzeug.utils import secure_filename
 
@@ -34,7 +39,16 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 # Configure Jinja2 security settings
 app.jinja_env.autoescape = True
 app.jinja_env.policies['trusted-templates'] = False
-app.jinja_env.from_string = None
+app.jinja_env.from_string = None  # Explicitly disable from_string
+
+jinja_env = Environment(
+    autoescape=select_autoescape(
+        enabled_extensions=('html', 'xml', 'j2'),
+        default_for_string=True,
+    ),
+    auto_reload=False,
+    cache_size=0
+)
 
 # Initialize extensions
 db = SQLAlchemy(app)
@@ -131,16 +145,55 @@ def secure_render(template_string, **context):
 
     return render_template(template_string, **escaped_context)
 
+
 @app.template_filter('markdown')
 def markdown_to_html(content):
-    """Secure markdown rendering with proper escaping"""
-    escaped_content = escape(content)
-    rendered = markdown2.markdown(
-        escaped_content,
-        safe_mode=True,
-        extras=['fenced-code-blocks', 'tables']
+    """
+    Convert markdown to HTML with strict security and no template parsing
+    """
+    if not content:
+        return ''
+
+    # First escape any HTML to prevent injection
+    content = html.escape(content)
+
+    # Convert markdown to HTML with specific extensions
+    html_content = markdown(
+        content,
+        extensions=[
+            FencedCodeExtension(),
+            TableExtension(),
+            CodeHiliteExtension(css_class='highlight')
+        ]
     )
-    return Markup(rendered)
+
+    # Clean and sanitize HTML
+    allowed_tags = [
+        'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'ul', 'ol', 'li', 'blockquote', 'pre', 'code',
+        'em', 'strong', 'a', 'img', 'table', 'thead', 'tbody',
+        'tr', 'th', 'td', 'br', 'hr'
+    ]
+
+    allowed_attributes = {
+        'a': ['href', 'title', 'rel'],
+        'img': ['src', 'alt', 'title'],
+        'code': ['class'],
+        '*': ['class']
+    }
+
+    cleaned_html = clean(
+        html_content,
+        tags=allowed_tags,
+        attributes=allowed_attributes,
+        protocols=['http', 'https', 'mailto'],
+        strip=True
+    )
+
+    # Automatically convert URLs to links
+    linked_html = linkify(cleaned_html, parse_email=True)
+
+    return Markup(linked_html)
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -245,15 +298,10 @@ def post_detail(id):
     if post is None:
         return 'Post not found', 404
 
-    post_content_html = markdown2.markdown(
-        escape(post.content),
-        safe_mode=True
-    )
-
+    # Use the markdown filter directly
     return render_template(
         'post_detail.html',
         post=post,
-        post_content_html=post_content_html,
         show_return_home=True,
         show_sidebar=True
     )
