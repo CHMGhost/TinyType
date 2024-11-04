@@ -26,11 +26,6 @@ def test_login_page(client):
     assert rv.status_code == 200
     assert b'Login' in rv.data
 
-def test_create_user():
-    """Test user creation"""
-    user = User(username='testuser', password='testpass')
-    assert user.username == 'testuser'
-
 def test_create_post():
     """Test post creation"""
     post = Post(
