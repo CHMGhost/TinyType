@@ -45,5 +45,6 @@ jobs:
       env:
         ADMIN_PASSWORD: ${{ secrets.FLASK_ADMIN_PASSWORD }}
         ADMIN_USERNAME: ${{ secrets.FLASK_ADMIN_USERNAME }}
+        ADMIN_PASSWORD_HASH: ${{ secrets.FLASK_ADMIN_PASSWORD_HASH }}
       run: |
         pytest tests/
