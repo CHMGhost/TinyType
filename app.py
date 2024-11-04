@@ -7,7 +7,6 @@ from wtforms.validators import DataRequired
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_talisman import Talisman
 from datetime import datetime
-from jinja2 import Environment, select_autoescape
 from markdown.extensions.fenced_code import FencedCodeExtension
 from markdown.extensions.tables import TableExtension
 from markdown.extensions.codehilite import CodeHiliteExtension
@@ -35,20 +34,6 @@ app = Flask(__name__, static_url_path='/static', static_folder='static')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///blog.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-
-# Configure Jinja2 security settings
-app.jinja_env.autoescape = True
-app.jinja_env.policies['trusted-templates'] = False
-app.jinja_env.from_string = None  # Explicitly disable from_string
-
-jinja_env = Environment(
-    autoescape=select_autoescape(
-        enabled_extensions=('html', 'xml', 'j2'),
-        default_for_string=True,
-    ),
-    auto_reload=False,
-    cache_size=0
-)
 
 # Initialize extensions
 db = SQLAlchemy(app)
@@ -114,17 +99,6 @@ if is_dev:
     @app.route('/static/<path:filename>')
     def serve_static(filename):
         return send_from_directory('static', filename)
-
-
-# Custom Jinja2 environment settings
-jinja_env = Environment(
-    autoescape=select_autoescape(
-        enabled_extensions=('html', 'xml', 'j2'),
-        default_for_string=True,
-    ),
-    auto_reload=False,  # Disable auto reload for security
-    cache_size=0  # Disable template caching
-)
 
 @app.after_request
 def add_security_headers(response):
