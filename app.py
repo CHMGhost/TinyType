@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_wtf import FlaskForm
@@ -13,14 +13,18 @@ import os
 from dotenv import load_dotenv
 import markdown2
 import json
+from werkzeug.utils import secure_filename
 
 # Load environment variables
 load_dotenv()
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 
-# Create Flask app first
-app = Flask(__name__)
+# Environment configuration
+is_dev = os.getenv('FLASK_ENV', 'development') == 'development'
+
+# Create Flask app
+app = Flask(__name__, static_url_path='/static', static_folder='static')
 
 # Configure Flask app
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///blog.db'
@@ -30,14 +34,7 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 # Configure Jinja2 security settings
 app.jinja_env.autoescape = True
 app.jinja_env.policies['trusted-templates'] = False
-
-# Custom Jinja2 environment settings
-jinja_env = Environment(
-    autoescape=select_autoescape(
-        enabled_extensions=('html', 'xml', 'j2'),
-        default_for_string=True,
-    )
-)
+app.jinja_env.from_string = None
 
 # Initialize extensions
 db = SQLAlchemy(app)
@@ -49,24 +46,78 @@ ADMIN_USERNAME = os.getenv('FLASK_ADMIN_USERNAME')
 ADMIN_PASSWORD = os.getenv('FLASK_ADMIN_PASSWORD')
 ADMIN_PASSWORD_HASH = generate_password_hash(ADMIN_PASSWORD)
 
-Talisman(app,
-         content_security_policy={
-             'default-src': "'self'",
-             'img-src': "'self' data:",
-             'script-src': "'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com",
-             'style-src': "'self' 'unsafe-inline' https://cdnjs.cloudflare.com",
-         },
-         force_https=True,
-         session_cookie_secure=True,
-         session_cookie_http_only=True
-         )
+UPLOAD_FOLDER = 'static/uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+
+csp = {
+    'default-src': "'self'",
+    'img-src': "'self' data:",
+    'script-src': [
+        "'self'",
+        "'unsafe-inline'",
+        "'unsafe-eval'",
+        "https://cdnjs.cloudflare.com"
+    ],
+    'style-src': [
+        "'self'",
+        "'unsafe-inline'",
+        "https://cdnjs.cloudflare.com"
+    ],
+    'font-src': [
+        "'self'",
+        "https://cdnjs.cloudflare.com",
+        "data:"
+    ]
+}
+
+if is_dev:
+    # Development settings - Disable CSP for local development
+    Talisman(
+        app,
+        force_https=False,
+        session_cookie_secure=False,
+        session_cookie_http_only=True,
+        content_security_policy=None,  # Disable CSP in development
+        feature_policy=None
+    )
+else:
+    # Production settings - Enable full security
+    Talisman(
+        app,
+        force_https=True,
+        session_cookie_secure=True,
+        session_cookie_http_only=True,
+        content_security_policy=csp,
+        content_security_policy_nonce_in=['script-src', 'style-src']
+    )
+
+# Add a route to serve static files in development
+if is_dev:
+    from flask import send_from_directory
+
+
+    @app.route('/static/<path:filename>')
+    def serve_static(filename):
+        return send_from_directory('static', filename)
+
+
+# Custom Jinja2 environment settings
+jinja_env = Environment(
+    autoescape=select_autoescape(
+        enabled_extensions=('html', 'xml', 'j2'),
+        default_for_string=True,
+    ),
+    auto_reload=False,  # Disable auto reload for security
+    cache_size=0  # Disable template caching
+)
 
 @app.after_request
 def add_security_headers(response):
+    """Add security headers to each response"""
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'SAMEORIGIN'
     response.headers['X-XSS-Protection'] = '1; mode=block'
-    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
     return response
 
 def secure_render(template_string, **context):
@@ -82,20 +133,14 @@ def secure_render(template_string, **context):
 
 @app.template_filter('markdown')
 def markdown_to_html(content):
-    return markdown2.markdown(
-        escape(content),
+    """Secure markdown rendering with proper escaping"""
+    escaped_content = escape(content)
+    rendered = markdown2.markdown(
+        escaped_content,
         safe_mode=True,
         extras=['fenced-code-blocks', 'tables']
     )
-
-
-@app.after_request
-def add_security_headers(response):
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
-    response.headers['X-XSS-Protection'] = '1; mode=block'
-    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-    return response
+    return Markup(rendered)
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -119,6 +164,16 @@ post_categories = db.Table('post_categories',
     db.Column('post_id', db.Integer, db.ForeignKey('post.id'), primary_key=True),
     db.Column('category_id', db.Integer, db.ForeignKey('category.id'), primary_key=True)
 )
+
+class Draft(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    title = db.Column(db.String(100))
+    content = db.Column(db.Text)
+    tags = db.Column(db.Text)  # Store as JSON string
+    categories = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -208,40 +263,173 @@ def post_detail(id):
         show_sidebar=True
     )
 
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+@app.route('/upload-image', methods=['POST'])
+@login_required
+def upload_image():
+    if 'image' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+
+    if file and allowed_file(file.filename):
+        filename = secure_filename(f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.filename}")
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(filepath)
+        return jsonify({'url': url_for('static', filename=f'uploads/{filename}')})
+
+    return jsonify({'error': 'Invalid file type'}), 400
+
+
+@app.route('/save-draft', methods=['POST'])
+@login_required
+def save_draft():
+    data = request.get_json()
+
+    draft = Draft.query.filter_by(user_id=current_user.id).first()
+    if not draft:
+        draft = Draft(user_id=current_user.id)
+
+    draft.title = data.get('title', '')
+    draft.content = data.get('content', '')
+    draft.tags = json.dumps(data.get('tags', []))
+    draft.categories = data.get('categories', '')
+
+    db.session.add(draft)
+    db.session.commit()
+
+    return jsonify({
+        'message': 'Draft saved successfully',
+        'updated_at': draft.updated_at.isoformat()
+    })
+
+
+@app.route('/load-draft')
+@login_required
+def load_draft():
+    draft = Draft.query.filter_by(user_id=current_user.id).first()
+    if draft:
+        return jsonify({
+            'draft': {
+                'title': draft.title,
+                'content': draft.content,
+                'tags': json.loads(draft.tags),
+                'categories': draft.categories,
+                'updated_at': draft.updated_at.isoformat()
+            }
+        })
+    return jsonify({'draft': None})
+
+
 @app.route('/new', methods=['GET', 'POST'])
 @login_required
 def new_post():
     form = PostForm()
-    if form.validate_on_submit():
-        title = form.title.data
-        content = form.content.data
-        tag_names = [tag['value'] for tag in json.loads(request.form['tags'])] if request.form['tags'] else []
-        tags = []
-        for name in tag_names:
-            tag_name = name.strip()
-            if tag_name:
-                tag = Tag.query.filter_by(name=tag_name).first()
-                if not tag:
-                    tag = Tag(name=tag_name)
-                    db.session.add(tag)
-                tags.append(tag)
-        category_names = [category.strip() for category in form.categories.data.split(',')] if form.categories.data else []
-        categories = []
-        for name in category_names:
-            if name:
-                category = Category.query.filter_by(name=name).first()
-                if not category:
-                    category = Category(name=name)
-                    db.session.add(category)
-                categories.append(category)
-        new_post = Post(title=title, content=content, user_id=current_user.id, tags=tags, categories=categories)
-        try:
-            db.session.add(new_post)
-            db.session.commit()
-            return redirect('/')
-        except Exception as e:
-            print(e)
-            return 'There was an issue adding your post'
+
+    if request.method == 'POST':
+        # Handle AJAX JSON submission
+        if request.is_json:
+            data = request.get_json()
+
+            # Create post
+            try:
+                # Create post
+                post = Post(
+                    title=data.get('title', '').strip(),
+                    content=data.get('content', '').strip(),
+                    user_id=current_user.id
+                )
+
+                # Handle tags
+                if data.get('tags'):
+                    for tag_data in json.loads(data['tags']) if isinstance(data['tags'], str) else data['tags']:
+                        tag_name = tag_data.get('value', '').strip()
+                        if tag_name:
+                            tag = Tag.query.filter_by(name=tag_name).first()
+                            if not tag:
+                                tag = Tag(name=tag_name)
+                                db.session.add(tag)
+                            post.tags.append(tag)
+
+                # Handle categories
+                if data.get('categories'):
+                    category_names = [cat.strip() for cat in data['categories'].split(',')]
+                    for cat_name in category_names:
+                        if cat_name:
+                            category = Category.query.filter_by(name=cat_name).first()
+                            if not category:
+                                category = Category(name=cat_name)
+                                db.session.add(category)
+                            post.categories.append(category)
+
+                db.session.add(post)
+
+                # Delete draft if exists
+                draft = Draft.query.filter_by(user_id=current_user.id).first()
+                if draft:
+                    db.session.delete(draft)
+
+                db.session.commit()
+
+                return jsonify({
+                    'message': 'Post created successfully',
+                    'redirect': url_for('post_detail', id=post.id)
+                })
+
+            except Exception as e:
+                db.session.rollback()
+                app.logger.error(f"Error creating post: {str(e)}")
+                return jsonify({'errors': {'submit': [str(e)]}}), 500
+
+        # Handle regular form submission
+        elif form.validate_on_submit():
+            try:
+                post = Post(
+                    title=form.title.data.strip(),
+                    content=form.content.data.strip(),
+                    user_id=current_user.id
+                )
+
+                # Handle tags
+                if form.tags.data:
+                    tag_names = [t.strip() for t in form.tags.data.split(',')]
+                    for tag_name in tag_names:
+                        if tag_name:
+                            tag = Tag.query.filter_by(name=tag_name).first()
+                            if not tag:
+                                tag = Tag(name=tag_name)
+                                db.session.add(tag)
+                            post.tags.append(tag)
+
+                # Handle categories
+                if form.categories.data:
+                    category_names = [cat.strip() for cat in form.categories.data.split(',')]
+                    for cat_name in category_names:
+                        if cat_name:
+                            category = Category.query.filter_by(name=cat_name).first()
+                            if not category:
+                                category = Category(name=cat_name)
+                                db.session.add(category)
+                            post.categories.append(category)
+
+                db.session.add(post)
+                db.session.commit()
+                flash('Post created successfully!', 'success')
+                return redirect(url_for('home'))
+
+            except Exception as e:
+                db.session.rollback()
+                app.logger.error(f"Error creating post: {str(e)}")
+                flash('Error creating post. Please try again.', 'danger')
+
     return render_template('new_post.html', form=form, show_sidebar=False)
 
 @app.route('/edit/<int:id>', methods=['GET', 'POST'])
@@ -343,5 +531,12 @@ if __name__ == '__main__':
     host = os.getenv('FLASK_HOST', '127.0.0.1')
     port = int(os.getenv('FLASK_PORT', 5000))
 
-    app.run(host=host, port=port, debug=False)
-
+    if is_dev:
+        # For development with optional SSL
+        ssl_context = None
+        if os.path.exists('cert.pem') and os.path.exists('key.pem'):
+            ssl_context = ('cert.pem', 'key.pem')
+        app.run(host=host, port=port, debug=debug_mode, ssl_context=ssl_context)
+    else:
+        # For production
+        app.run(host=host, port=port, debug=False)
