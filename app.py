@@ -7,6 +7,8 @@ from wtforms.validators import DataRequired
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_talisman import Talisman
 from datetime import datetime
+from jinja2 import Environment, select_autoescape
+from markupsafe import escape
 import os
 from dotenv import load_dotenv
 import markdown2
@@ -16,6 +18,39 @@ import json
 load_dotenv()
 
 basedir = os.path.abspath(os.path.dirname(__file__))
+
+app.jinja_env.autoescape = True
+app.jinja_env.policies['trusted-templates'] = False
+app.jinja_env = Environment(
+    autoescape=select_autoescape(
+        enabled_extensions=('html', 'xml', 'j2'),
+        default_for_string=True,
+    )
+)
+
+
+# Secure render function - Add this helper function
+def secure_render(template_string, **context):
+    if not isinstance(template_string, str):
+        raise TypeError("Template must be a string")
+
+    escaped_context = {
+        k: escape(v) if isinstance(v, str) else v
+        for k, v in context.items()
+    }
+
+    return render_template(template_string, **escaped_context)
+
+
+# Update your template filter - Replace your existing markdown filter
+@app.template_filter('markdown')
+def markdown_to_html(content):
+    return markdown2.markdown(
+        escape(content),
+        safe_mode=True,
+        extras=['fenced-code-blocks', 'tables']
+    )
+
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///blog.db'
@@ -148,9 +183,19 @@ def post_detail(id):
     post = db.session.get(Post, id)
     if post is None:
         return 'Post not found', 404
-    post_content_html = markdown2.markdown(post.content)
-    return render_template('post_detail.html', post=post, post_content_html=post_content_html, show_return_home=True, show_sidebar=True)
 
+    post_content_html = markdown2.markdown(
+        escape(post.content),
+        safe_mode=True
+    )
+
+    return render_template(
+        'post_detail.html',
+        post=post,
+        post_content_html=post_content_html,
+        show_return_home=True,
+        show_sidebar=True
+    )
 
 @app.route('/new', methods=['GET', 'POST'])
 @login_required
@@ -236,7 +281,7 @@ def edit_post(id):
 
 @app.route('/search', methods=['GET'])
 def search():
-    query = request.args.get('query')
+    query = escape(request.args.get('query', ''))
     if query:
         search_pattern = f"%{query}%"
         posts = Post.query.filter(
@@ -249,8 +294,14 @@ def search():
         ).order_by(Post.date_posted.desc()).all()
     else:
         posts = Post.query.order_by(Post.date_posted.desc()).all()
-    return render_template('search_results.html', posts=posts, query=query, show_return_home=True, show_sidebar=True)
 
+    return render_template(
+        'search_results.html',
+        posts=posts,
+        query=query,
+        show_return_home=True,
+        show_sidebar=True
+    )
 @app.route('/delete/<int:id>')
 @login_required
 def delete_post(id):
