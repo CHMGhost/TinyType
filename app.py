@@ -19,17 +19,56 @@ load_dotenv()
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 
+# Create Flask app first
+app = Flask(__name__)
+
+# Configure Flask app
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///blog.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+
+# Configure Jinja2 security settings
 app.jinja_env.autoescape = True
 app.jinja_env.policies['trusted-templates'] = False
-app.jinja_env = Environment(
+
+# Custom Jinja2 environment settings
+jinja_env = Environment(
     autoescape=select_autoescape(
         enabled_extensions=('html', 'xml', 'j2'),
         default_for_string=True,
     )
 )
 
+# Initialize extensions
+db = SQLAlchemy(app)
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
 
-# Secure render function - Add this helper function
+# Fetch admin credentials
+ADMIN_USERNAME = os.getenv('FLASK_ADMIN_USERNAME')
+ADMIN_PASSWORD = os.getenv('FLASK_ADMIN_PASSWORD')
+ADMIN_PASSWORD_HASH = generate_password_hash(ADMIN_PASSWORD)
+
+Talisman(app,
+         content_security_policy={
+             'default-src': "'self'",
+             'img-src': "'self' data:",
+             'script-src': "'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com",
+             'style-src': "'self' 'unsafe-inline' https://cdnjs.cloudflare.com",
+         },
+         force_https=True,
+         session_cookie_secure=True,
+         session_cookie_http_only=True
+         )
+
+@app.after_request
+def add_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    return response
+
 def secure_render(template_string, **context):
     if not isinstance(template_string, str):
         raise TypeError("Template must be a string")
@@ -41,8 +80,6 @@ def secure_render(template_string, **context):
 
     return render_template(template_string, **escaped_context)
 
-
-# Update your template filter - Replace your existing markdown filter
 @app.template_filter('markdown')
 def markdown_to_html(content):
     return markdown2.markdown(
@@ -51,32 +88,6 @@ def markdown_to_html(content):
         extras=['fenced-code-blocks', 'tables']
     )
 
-
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///blog.db'
-app.config['SQLALCHEMY_TRACvK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-
-db = SQLAlchemy(app)
-login_manager = LoginManager(app)
-login_manager.login_view = 'login'
-
-# Fetch admin credentials from environment variables
-ADMIN_USERNAME = os.getenv('FLASK_ADMIN_USERNAME')
-ADMIN_PASSWORD = os.getenv('FLASK_ADMIN_PASSWORD')
-ADMIN_PASSWORD_HASH = generate_password_hash(ADMIN_PASSWORD)
-
-Talisman(app,
-    content_security_policy={
-        'default-src': "'self'",
-        'img-src': "'self' data:",
-        'script-src': "'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com",
-        'style-src': "'self' 'unsafe-inline' https://cdnjs.cloudflare.com",
-    },
-    force_https=True,
-    session_cookie_secure=True,
-    session_cookie_http_only=True
-)
 
 @app.after_request
 def add_security_headers(response):
