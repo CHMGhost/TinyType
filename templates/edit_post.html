@@ -18,26 +18,136 @@
     <div class="form-group">
         {{ form.categories.label }} {{ form.categories(class="form-control") }}
     </div>
-    <button type="submit" class="btn btn-primary">Submit</button>
+    <div class="btn-group mt-3">
+        <button type="submit" class="btn btn-primary">Publish</button>
+        <button type="button" class="btn btn-secondary" id="saveDraftBtn">Save Draft</button>
+        <button type="button" class="btn btn-info" id="previewBtn">Preview</button>
+    </div>
 </form>
+<div id="preview-area" class="mt-4" style="display: none;"></div>
 {% endblock %}
 
 {% block scripts %}
-<!-- SimpleMDE CSS and JS -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.css">
-<script src="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        var simplemde = new SimpleMDE({ element: document.getElementById("content") });
-
-        // Sync SimpleMDE content to textarea before form submission
-        document.getElementById('postForm').addEventListener('submit', function() {
-            document.getElementById('content').value = simplemde.value();
+        // Initialize EasyMDE
+        const easyMDE = new EasyMDE({
+            element: document.getElementById("content"),
+            spellChecker: false,
+            autosave: {
+                enabled: true,
+                uniqueId: "editPostEditor",
+                delay: 1000,
+            },
+            toolbar: [
+                "bold", "italic", "heading", "|",
+                "quote", "unordered-list", "ordered-list", "|",
+                "link", {
+                    name: "image",
+                    action: async function customFunction(editor) {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = 'image/*';
+                        input.onchange = async function() {
+                            const file = this.files[0];
+                            if (file) {
+                                await uploadImage(file, editor);
+                            }
+                        };
+                        input.click();
+                    },
+                    className: "fa fa-image",
+                    title: "Upload Image"
+                }, "|",
+                "preview", "side-by-side", "fullscreen", "|",
+                "guide"
+            ]
         });
 
-        // Initialize Tagify
-        var input = document.querySelector('input[name=tags]');
-        new Tagify(input);
+        // Sync EasyMDE content to textarea before form submission
+        document.getElementById('postForm').addEventListener('submit', function() {
+            document.getElementById('content').value = easyMDE.value();
+        });
+
+        // Initialize Tagify for tags
+        const input = document.querySelector('input[name=tags]');
+        if (input) {
+            new Tagify(input, {
+                maxTags: 10,
+                backspace: "edit",
+                placeholder: "Type tags and press enter",
+                editTags: 1
+            });
+        }
+
+        // Save Draft Function
+        const saveDraftButton = document.getElementById('saveDraftBtn');
+        if (saveDraftButton) {
+            saveDraftButton.addEventListener('click', async function() {
+                const draftData = {
+                    title: document.getElementById('title').value,
+                    content: easyMDE.value(),
+                    tags: input ? input.value : '',
+                    categories: document.getElementById('categories').value
+                };
+
+                try {
+                    const response = await fetch('/save-draft', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+                        },
+                        body: JSON.stringify(draftData)
+                    });
+
+                    if (response.ok) {
+                        document.getElementById('draft-status').textContent =
+                            `Draft saved at ${new Date().toLocaleTimeString()}`;
+                    }
+                } catch (error) {
+                    console.error('Failed to save draft:', error);
+                }
+            });
+        }
+
+        // Preview Function
+        const previewButton = document.getElementById('previewBtn');
+        if (previewButton) {
+            previewButton.addEventListener('click', function() {
+                const content = easyMDE.value();
+                const previewArea = document.getElementById('preview-area');
+                previewArea.style.display = 'block';
+                previewArea.innerHTML = marked.parse(content);
+            });
+        }
+
+        // Image Upload Function
+        async function uploadImage(file, editor) {
+            const formData = new FormData();
+            formData.append('image', file);
+
+            try {
+                const response = await fetch('/upload-image', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const imageUrl = data.url;
+                    const cursor = editor.codemirror.getCursor();
+                    editor.codemirror.replaceRange(`![](${imageUrl})`, cursor);
+                } else {
+                    throw new Error('Upload failed');
+                }
+            } catch (error) {
+                alert('Failed to upload image: ' + error.message);
+            }
+        }
     });
 </script>
 {% endblock %}

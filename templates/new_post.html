@@ -2,39 +2,6 @@
 
 {% block title %}New Post{% endblock %}
 
-{% block head %}
-<!-- SimpleMDE CSS -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.css">
-<!-- Tagify CSS -->
-<link href="https://cdn.jsdelivr.net/npm/@yaireo/tagify/dist/tagify.css" rel="stylesheet" type="text/css" />
-<!-- Custom CSS for image upload -->
-<style>
-    .editor-toolbar.fullscreen {
-        z-index: 1000;
-    }
-    .CodeMirror-fullscreen {
-        z-index: 1000;
-    }
-    .upload-progress {
-        display: none;
-        margin: 10px 0;
-    }
-    .draft-status {
-        color: #666;
-        font-size: 0.9em;
-        margin-top: 5px;
-    }
-    #preview-area {
-        margin-top: 20px;
-        padding: 20px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        display: none;
-    }
-</style>
-{% endblock %}
-
-
 {% block content %}
 <div class="container">
     <h1 class="my-4">New Post</h1>
@@ -77,195 +44,197 @@
 {% endblock %}
 
 {% block scripts %}
-<!-- Required JS libraries -->
-<script src="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@yaireo/tagify"></script>
-<script src="https://cdn.jsdelivr.net/npm/@yaireo/tagify/dist/tagify.polyfills.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.2.12/marked.min.js"></script>
 
 <script>
-// Wait for all resources to load
-window.onload = function() {
-    // Initialize SimpleMDE
-    const editor = new SimpleMDE({
-        element: document.getElementById('content'),
-        spellChecker: false,
-        autosave: {
-            enabled: true,
-            uniqueId: "postEditor",
-            delay: 1000,
-        },
-        toolbar: [
-            "bold", "italic", "heading", "|",
-            "quote", "unordered-list", "ordered-list", "|",
-            "link", {
-                name: "image",
-                action: async function customFunction(editor) {
-                    const input = document.createElement('input');
-                    input.type = 'file';
-                    input.accept = 'image/*';
-                    input.onchange = async function() {
-                        const file = this.files[0];
-                        if (file) {
-                            await uploadImage(file, editor);
-                        }
-                    };
-                    input.click();
-                },
-                className: "fa fa-image",
-                title: "Upload Image"
-            }, "|",
-            "preview", "side-by-side", "fullscreen", "|",
-            "guide"
-        ]
-    });
-
-    // Initialize Tagify
-    const tagify = new Tagify(document.querySelector('input[name=tags]'), {
-        maxTags: 10,
-        backspace: "edit",
-        placeholder: "Type tags and press enter",
-        editTags: 1
-    });
-
-    // Image Upload Function
-    async function uploadImage(file, editor) {
-        const formData = new FormData();
-        formData.append('image', file);
-
-        const progressBar = document.querySelector('.upload-progress');
-        progressBar.style.display = 'block';
-        const progressBarInner = progressBar.querySelector('.progress-bar');
-
-        try {
-            const response = await fetch('/upload-image', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                const imageUrl = data.url;
-                const cursor = editor.codemirror.getCursor();
-                editor.codemirror.replaceRange(`![](${imageUrl})`, cursor);
-            } else {
-                throw new Error('Upload failed');
-            }
-        } catch (error) {
-            alert('Failed to upload image: ' + error.message);
-        } finally {
-            progressBar.style.display = 'none';
-            progressBarInner.style.width = '0%';
-        }
-    }
-
-    // Preview Function
-    document.getElementById('previewBtn').addEventListener('click', function() {
-        const content = simplemde.value();
-        const previewArea = document.getElementById('preview-area');
-        previewArea.style.display = 'block';
-        previewArea.innerHTML = marked.parse(content);
-    });
-
-    // Draft Saving Function
-    async function saveDraft() {
-        const draftData = {
-            title: document.getElementById('title').value,
-            content: simplemde.value(),
-            tags: tagify.value,
-            categories: document.getElementById('categories').value
-        };
-
-        try {
-            const response = await fetch('/save-draft', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
-                },
-                body: JSON.stringify(draftData)
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                document.getElementById('draft-status').textContent =
-                    `Draft saved at ${new Date().toLocaleTimeString()}`;
-            }
-        } catch (error) {
-            console.error('Failed to save draft:', error);
-        }
-    }
-
-    // Save Draft Button
-    document.getElementById('saveDraftBtn').addEventListener('click', saveDraft);
-
-    // Auto-save draft every 30 seconds
-    setInterval(saveDraft, 30000);
-
-    // Load existing draft
-    fetch('/load-draft')
-        .then(response => response.json())
-        .then(data => {
-            if (data.draft) {
-                document.getElementById('title').value = data.draft.title || '';
-                simplemde.value(data.draft.content || '');
-                tagify.addTags(data.draft.tags || []);
-                document.getElementById('categories').value = data.draft.categories || '';
-                document.getElementById('draft-status').textContent =
-                    `Draft loaded from ${new Date(data.draft.updated_at).toLocaleString()}`;
-            }
-        })
-        .catch(console.error);
-
-document.getElementById('postForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-
-    const formData = {
-        title: document.getElementById('title').value,
-        content: simplemde.value(),
-        tags: JSON.stringify(tagify.value),
-        categories: document.getElementById('categories').value
-    };
-
-    try {
-        const response = await fetch(this.action, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize EasyMDE
+    const contentElement = document.getElementById('content');
+    if (contentElement) {
+        var easyMDE = new EasyMDE({
+            element: contentElement,
+            spellChecker: false,
+            autosave: {
+                enabled: true,
+                uniqueId: "postEditor",
+                delay: 1000,
             },
-            body: JSON.stringify(formData)
+            toolbar: [
+                "bold", "italic", "heading", "|",
+                "quote", "unordered-list", "ordered-list", "|",
+                "link", {
+                    name: "image",
+                    action: async function customFunction(editor) {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = 'image/*';
+                        input.onchange = async function() {
+                            const file = this.files[0];
+                            if (file) {
+                                await uploadImage(file, editor);
+                            }
+                        };
+                        input.click();
+                    },
+                    className: "fa fa-image",
+                    title: "Upload Image"
+                }, "|",
+                "preview", "side-by-side", "fullscreen", "|",
+                "guide"
+            ]
         });
 
-        if (response.ok) {
-            const data = await response.json();
-            if (data.redirect) {
-                window.location.href = data.redirect;
-            }
-        } else {
-            const data = await response.json();
-            if (data.errors) {
-                Object.entries(data.errors).forEach(([field, errors]) => {
-                    const element = document.getElementById(field);
-                    if (element) {
-                        element.classList.add('is-invalid');
-                        const feedback = element.nextElementSibling;
-                        if (feedback && feedback.classList.contains('invalid-feedback')) {
-                            feedback.textContent = errors.join(', ');
-                        }
+        // Sync content before form submission
+        document.getElementById('postForm').addEventListener('submit', function() {
+            contentElement.value = easyMDE.value();
+        });
+
+        // Initialize Tagify for tags
+        const tagInputElement = document.querySelector('input[name=tags]');
+        if (tagInputElement) {
+            new Tagify(tagInputElement, {
+                maxTags: 10,
+                backspace: "edit",
+                placeholder: "Type tags and press enter",
+                editTags: 1
+            });
+        }
+
+        // Image Upload Function
+        async function uploadImage(file, editor) {
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const progressBar = document.querySelector('.upload-progress');
+            progressBar.style.display = 'block';
+            const progressBarInner = progressBar.querySelector('.progress-bar');
+
+            try {
+                const response = await fetch('/upload-image', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
                     }
                 });
-            } else {
-                throw new Error('Unknown error occurred');
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const imageUrl = data.url;
+                    const cursor = editor.codemirror.getCursor();
+                    editor.codemirror.replaceRange(`![](${imageUrl})`, cursor);
+                } else {
+                    throw new Error('Upload failed');
+                }
+            } catch (error) {
+                alert('Failed to upload image: ' + error.message);
+            } finally {
+                progressBar.style.display = 'none';
+                progressBarInner.style.width = '0%';
             }
         }
-    } catch (error) {
-        console.error('Submission error:', error);
-        alert('Failed to submit post. Please try again.');
+
+        // Draft Saving Function
+        async function saveDraft() {
+            const draftData = {
+                title: document.getElementById('title').value,
+                content: easyMDE.value(),
+                tags: tagInputElement ? tagInputElement.value : '',
+                categories: document.getElementById('categories').value
+            };
+
+            try {
+                const response = await fetch('/save-draft', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+                    },
+                    body: JSON.stringify(draftData)
+                });
+
+                if (response.ok) {
+                    document.getElementById('draft-status').textContent =
+                        `Draft saved at ${new Date().toLocaleTimeString()}`;
+                }
+            } catch (error) {
+                console.error('Failed to save draft:', error);
+            }
+        }
+
+        // Add event listener to the save draft button
+        const saveDraftButton = document.getElementById('saveDraftBtn');
+        if (saveDraftButton) {
+            saveDraftButton.addEventListener('click', saveDraft);
+        }
+
+        // Auto-save draft every 30 seconds
+        setInterval(saveDraft, 30000);
+
+        // Load existing draft
+        fetch('/load-draft')
+            .then(response => response.json())
+            .then(data => {
+                if (data.draft) {
+                    document.getElementById('title').value = data.draft.title || '';
+                    easyMDE.value(data.draft.content || '');
+                    if (tagInputElement) tagInputElement.value = data.draft.tags || '';
+                    document.getElementById('categories').value = data.draft.categories || '';
+                    document.getElementById('draft-status').textContent =
+                        `Draft loaded from ${new Date(data.draft.updated_at).toLocaleString()}`;
+                }
+            })
+            .catch(console.error);
+
+        // Submit Form Function
+        document.getElementById('postForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const formData = {
+                title: document.getElementById('title').value,
+                content: easyMDE.value(),
+                tags: JSON.stringify(tagInputElement ? tagInputElement.value : ''),
+                categories: document.getElementById('categories').value
+            };
+
+            try {
+                const response = await fetch(this.action, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.redirect) {
+                        window.location.href = data.redirect;
+                    }
+                } else {
+                    const data = await response.json();
+                    if (data.errors) {
+                        Object.entries(data.errors).forEach(([field, errors]) => {
+                            const element = document.getElementById(field);
+                            if (element) {
+                                element.classList.add('is-invalid');
+                                const feedback = element.nextElementSibling;
+                                if (feedback && feedback.classList.contains('invalid-feedback')) {
+                                    feedback.textContent = errors.join(', ');
+                                }
+                            }
+                        });
+                    } else {
+                        throw new Error('Unknown error occurred');
+                    }
+                }
+            } catch (error) {
+                console.error('Submission error:', error);
+                alert('Failed to submit post. Please try again.');
+            }
+        });
     }
 });
 </script>
+
 {% endblock %}
