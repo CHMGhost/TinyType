@@ -6,6 +6,7 @@ A ridiculously simple yet secure blogging engine that gets out of your way. Buil
 ![Python](https://img.shields.io/badge/Python-3.7+-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Security](https://img.shields.io/badge/security-enhanced-green)
+![Bootstrap](https://img.shields.io/badge/Bootstrap-5.3.2-purple)
 
 ## What's This?
 
@@ -16,10 +17,11 @@ TinyType is a no-nonsense blog engine for people who just want to write. No comp
 - ✍️ **Just Write**: Focus on content with Markdown support
 - 🎯 **Zero Bloat**: Only the features you actually need
 - 🔒 **Enhanced Security**: Strong security defaults and protections
-- 🎨 **Clean Design**: Minimalist but not boring
+- 🎨 **Modern Design**: Clean Bootstrap 5 interface with custom styling
 - 💾 **Auto-Save**: Never lose your work with automatic draft saving
 - 📤 **Image Upload**: Easy image uploading for your posts
 - 🔍 **Advanced Search**: Search through posts, tags, and categories
+- 📱 **Responsive**: Fully responsive design for all devices
 
 ## Features
 
@@ -30,15 +32,24 @@ TinyType is a no-nonsense blog engine for people who just want to write. No comp
 - 📷 Image upload support
 - 🔍 Full-text search across posts, tags, and categories
 - 👤 Simple admin login
-- 📱 Mobile-friendly design
+- 📱 Mobile-friendly design with Bootstrap 5
 - 🎯 Full CRUD operations for posts
+
+### Design Features
+- 🎨 Modern Bootstrap 5 interface
+- 📱 Responsive grid layout
+- 🎯 Clean, minimalist design
+- 💅 Custom styling with modern CSS
+- 🌗 Consistent typography
+- 🎨 Beautiful form elements
+- 📦 Component-based structure
 
 ### Security Features
 - 🔐 Content Security Policy (CSP) implementation
 - 🛡️ CSRF protection
 - 🔑 Secure password hashing
 - 🚫 XSS protection
-- 📜 Security headers (X-Content-Type-Options, X-Frame-Options, etc.)
+- 📜 Security headers
 - 🔒 Secure session management
 - 🧹 HTML sanitization for markdown content
 
@@ -88,10 +99,10 @@ tinytype/
 ├── app.py              # Main application logic
 ├── blog.db            # SQLite database
 ├── static/
-│   ├── styles.css     # Core styles
+│   ├── styles.css     # Custom styles + Bootstrap overrides
 │   └── uploads/       # Image uploads directory
 ├── templates/         # Jinja2 templates
-│   ├── base.html      # Base template
+│   ├── base.html      # Base template with Bootstrap
 │   ├── home.html      # Homepage
 │   ├── login.html     # Login page
 │   ├── new_post.html  # Create post
@@ -103,30 +114,31 @@ tinytype/
 └── tests/            # Test suite
 ```
 
-## Advanced Features
+## Styling and Design
 
-### Auto-Save Drafts
-- Posts are automatically saved as drafts while writing
-- Recover your work if your browser crashes
-- Draft management system
+### Bootstrap Integration
+- Built with Bootstrap 5.3.2
+- Custom overrides for unique look
+- Responsive grid system
+- Modern component library
 
-### Image Upload
-- Drag-and-drop image upload support
-- Automatic file type validation
-- Secure filename handling
-- Progress indicator for uploads
+### Custom Styling
+```css
+/* Example of our custom styling */
+body {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    grid-template-rows: 100vh;
+}
 
-### Search Functionality
-- Full-text search across posts
-- Search within tags and categories
-- Real-time search suggestions
-- Search result highlighting
-
-### Category Management
-- Organize posts by categories
-- Category-based navigation
-- Category-specific feeds
-- Multiple categories per post
+/* Responsive design */
+@media (max-width: 768px) {
+    body {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+    }
+}
+```
 
 ## Technical Details
 
@@ -144,20 +156,15 @@ Markdown>=3.7
 bleach>=6.2.0
 ```
 
-### Security Implementation
-- Content Security Policy (CSP) for preventing XSS attacks
-- Secure password hashing using Werkzeug
-- CSRF protection using Flask-WTF
-- HTML sanitization using Bleach
-- Secure file upload handling
-- Environment-based security configurations
-- Talisman integration for security headers
+### Frontend Dependencies
+```html
+<!-- Bootstrap 5 -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
-### Development Mode
-- Debug mode configuration
-- Optional SSL support in development
-- Environment-specific security settings
-- Detailed error reporting
+<!-- Bootstrap Icons -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+```
 
 ## Contributing
 
@@ -187,5 +194,6 @@ Because sometimes you just want something tiny and simple that works. TinyType i
 - Flexible enough to customize without a headache
 - Small enough to maintain without a team
 - Secure enough for production use
+- Beautiful enough out of the box with Bootstrap 5
 
 Made with ❤️ and probably too much coffee.
