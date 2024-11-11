@@ -1,15 +1,16 @@
+/* Base Layout */
 body {
     display: grid;
-    grid-template-columns: 200px 1fr; /* Sidebar and main content */
-    grid-template-rows: 100vh; /* Full height */
+    grid-template-columns: 250px 1fr; /* Slightly wider sidebar for Bootstrap components */
+    grid-template-rows: 100vh;
     margin: 0;
-    overflow-x: hidden; /* Prevent horizontal scrolling */
+    overflow-x: hidden;
 }
 
+/* Sidebar */
 .sidebar {
     background-color: #f8f9fa;
     border-right: 1px solid #dee2e6;
-    text-align: center;
     padding-top: 20px;
     overflow-y: auto;
 }
@@ -19,35 +20,110 @@ body {
     justify-content: center;
     align-items: center;
     padding: 0 20px;
+    margin-bottom: 1rem;
 }
 
 .sidebar .header .title {
-    font-size: 1em; /* Font size */
-    font-weight: bold;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #212529;
+    text-decoration: none;
 }
 
+/* Sidebar Links */
 .sidebar a {
     display: block;
-    padding: 8px 0;
+    padding: 0.5rem 1rem;
     text-decoration: none;
-    font-size: 1em; /* Font size */
-    color: #333;
+    color: #495057;
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out;
 }
 
 .sidebar a:hover {
-    color: #575757;
+    color: #0d6efd;
+    background-color: rgba(13, 110, 253, 0.1);
 }
 
+/* Main Content */
 .main-content {
-    padding: 16px;
-    overflow-y: auto; /* Ensure content is scrollable if too long */
+    padding: 1.5rem;
+    overflow-y: auto;
 }
 
+/* Search Form */
 .search-form {
     display: none;
-    margin-top: 10px;
+    padding: 0 1rem;
+    margin-top: 0.5rem;
+    margin-bottom: 1rem;
 }
 
 .show-search {
     display: block !important;
+}
+
+/* Bootstrap Overrides and Extensions */
+/* Forms */
+.form-control {
+    border-radius: 0.375rem;
+}
+
+/* Cards */
+.card {
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+    border: 1px solid rgba(0,0,0,.125);
+}
+
+/* Buttons */
+.btn {
+    border-radius: 0.375rem;
+}
+
+/* Category Badges */
+.badge {
+    font-weight: 500;
+    padding: 0.35em 0.65em;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    body {
+        grid-template-columns: 1fr; /* Stack on mobile */
+        grid-template-rows: auto 1fr;
+    }
+
+    .sidebar {
+        border-right: none;
+        border-bottom: 1px solid #dee2e6;
+        padding-bottom: 1rem;
+    }
+}
+
+/* Post Content */
+.markdown-content {
+    line-height: 1.6;
+    color: #212529;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+/* Post Metadata */
+.post-metadata {
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+/* Category and Tag Lists */
+.post-tags,
+.post-categories {
+    margin: 1rem 0;
 }
